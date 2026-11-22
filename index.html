@@ -1425,3 +1425,112 @@
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             rows = XLSX.utils.sheet_to_json(firstSheet, { defval:
+                  function openFeedbackModal(source, id) {
+      modalContext = { source, id, editFbId: null };
+      const item = findAgentItem(source, id);
+      if (!item) return;
+
+      document.getElementById('feedbackModalTitle').textContent = `فيدباك العميل: ${item.name}`;
+      document.getElementById('feedbackInputLabel').textContent = 'إضافة فيدباك جديد';
+      document.getElementById('feedbackText').value = '';
+      renderFeedbackHistory(item);
+      document.getElementById('feedbackModal').style.display = 'flex';
+    }
+
+    function renderFeedbackHistory(item) {
+      const box = document.getElementById('feedbackHistoryList');
+      box.innerHTML = item.feedbacks.length ? item.feedbacks.map(fb => `
+        <div class="feedback-item">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span style="color:var(--muted); font-size:11px;">${escapeHtml(fb.time)}</span>
+            <button class="btn btn-sm btn-outline" style="padding:3px 8px;" onclick="startEditFeedback('${fb.id}')">تعديل</button>
+          </div>
+          <div>${escapeHtml(fb.text)}</div>
+        </div>
+      `).join('') : `<div style="font-size:12px; color:var(--muted);">لا يوجد سجل فيدباك سابق لهذا العميل</div>`;
+    }
+
+    function startEditFeedback(fbId) {
+      const item = findAgentItem(modalContext.source, modalContext.id);
+      if (!item) return;
+      const fb = item.feedbacks.find(f => f.id === fbId);
+      if (!fb) return;
+
+      modalContext.editFbId = fbId;
+      document.getElementById('feedbackInputLabel').textContent = 'تعديل الفيدباك المحدد';
+      document.getElementById('feedbackText').value = fb.text;
+    }
+
+    function saveFeedback() {
+      const text = document.getElementById('feedbackText').value.trim();
+      if (!text) {
+        showToast('اكتب نص الفيدباك أولاً');
+        return;
+      }
+      const item = findAgentItem(modalContext.source, modalContext.id);
+      if (!item) return;
+
+      const nowStr = new Date().toLocaleString('ar-EG');
+      if (modalContext.editFbId) {
+        const fb = item.feedbacks.find(f => f.id === modalContext.editFbId);
+        if (fb) {
+          fb.text = text;
+          fb.time = nowStr + ' (معدّل)';
+        }
+        modalContext.editFbId = null;
+        document.getElementById('feedbackInputLabel').textContent = 'إضافة فيدباك جديد';
+      } else {
+        item.feedbacks.push({ id: 'fb-' + Date.now(), text, time: nowStr });
+      }
+
+      document.getElementById('feedbackText').value = '';
+      saveState();
+      renderFeedbackHistory(item);
+      renderApp();
+      showToast('تم حفظ الفيدباك');
+    }
+
+    function openCloseDealModal(source, id) {
+      modalContext = { source, id, editFbId: null };
+      document.getElementById('dealReasonInput').value = '';
+      document.getElementById('closeDealModal').style.display = 'flex';
+    }
+
+    function submitDealClosure(e) {
+      e.preventDefault();
+      const status = document.getElementById('dealStatusSelect').value;
+      const reason = document.getElementById('dealReasonInput').value.trim();
+      if (!reason) {
+        showToast('يجب كتابة سبب النجاح أو عدم النجاح لإغلاق الصفقة');
+        return;
+      }
+
+      const item = findAgentItem(modalContext.source, modalContext.id);
+      if (!item) return;
+
+      item.dealStatus = status;
+      item.dealReason = reason;
+      item.dealDate = getTodayStr();
+      saveState();
+      closeModal('closeDealModal');
+      showToast('تم إغلاق الصفقة وحفظ السبب');
+      renderApp();
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    renderApp();
+  </script>
+</body>
+</html>
+
